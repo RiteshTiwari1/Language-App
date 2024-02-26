@@ -1,138 +1,135 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import countries from "../data";
-
 const Translate = () => {
-  const [fromText, setFromText] = useState("");
-  const [toText, setToText] = useState("");
-  const [fromLang, setFromLang] = useState("en-GB");
-  const [toLang, setToLang] = useState("fr-FR");
-
   useEffect(() => {
-    const selectTags = document.querySelectorAll("select");
-
-    selectTags.forEach((tag, id) => {
+    const fromText = document.querySelector(".from-text");
+    const toText = document.querySelector(".to-text");
+    const exchageIcon = document.querySelector(".exchange");
+    const selectTag = document.querySelectorAll("select");
+    const icons = document.querySelectorAll(".row i");
+    const translateBtn = document.querySelector("button");
+    selectTag.forEach((tag, id) => {
       for (let country_code in countries) {
-        const selected = (id === 0 && country_code === "en-GB") || (id === 1 && country_code === "fr-FR") ? "selected" : "";
-        const option = `<option ${selected} value="${country_code}">${countries[country_code]}</option>`;
+        let selected =
+          id == 0
+            ? country_code == "en-GB"
+              ? "selected"
+              : ""
+            : country_code == "fr-FR"
+            ? "selected"
+            : "";
+        let option = `<option ${selected} value="${country_code}">${countries[country_code]}</option>`;
         tag.insertAdjacentHTML("beforeend", option);
       }
     });
 
-    const exchangeIcon = document.querySelector(".exchange");
-    exchangeIcon.addEventListener("click", handleExchange);
+    exchageIcon.addEventListener("click", () => {
+      
+      let tempText = fromText.value;
+      let tempLang = selectTag[0].value;
+      console.log(tempText);
+      console.log(tempLang);
+      fromText.value = toText.value;
+      toText.value = tempText;
+      selectTag[0].value = selectTag[1].value;
+      selectTag[1].value = tempLang;
+    });
 
-    const textAreaFrom = document.querySelector(".from-text");
-    textAreaFrom.addEventListener("keyup", handleKeyUp);
+    fromText.addEventListener("keyup", () => {
+      if (!fromText.value) {
+        toText.value = "";
+      }
+    });
 
-    const translateBtn = document.querySelector("button");
-    translateBtn.addEventListener("click", handleTranslate);
+    translateBtn.addEventListener("click", () => {
+      let text = fromText.value.trim();
+      let translateFrom = selectTag[0].value;
+      let translateTo = selectTag[1].value;
+      if (!text) return;
+      toText.setAttribute("placeholder", "Translating...");
+      let apiUrl = `https://api.mymemory.translated.net/get?q=${text}&langpair=${translateFrom}|${translateTo}`;
+      fetch(apiUrl)
+        .then((res) => res.json())
+        .then((data) => {
+          toText.value = data.responseData.translatedText;
+          data.matches.forEach((data) => {
+            if (data.id === 0) {
+              toText.value = data.translation;
+            }
+          });
+          toText.setAttribute("placeholder", "Translation");
+        });
+    });
 
-    const icons = document.querySelectorAll(".row i");
     icons.forEach((icon) => {
-      icon.addEventListener("click", handleIconClick);
-    });
-
-    return () => {
-      exchangeIcon.removeEventListener("click", handleExchange);
-      textAreaFrom.removeEventListener("keyup", handleKeyUp);
-      translateBtn.removeEventListener("click", handleTranslate);
-      icons.forEach((icon) => {
-        icon.removeEventListener("click", handleIconClick);
+      icon.addEventListener("click", ({ target }) => {
+        if (!fromText.value || !toText.value) return;
+        if (target.classList.contains("fa-copy")) {
+          if (target.id == "from") {
+            navigator.clipboard.writeText(fromText.value);
+          } else {
+            navigator.clipboard.writeText(toText.value);
+          }
+        } else {
+          let utterance;
+          if (target.id == "from") {
+            utterance = new SpeechSynthesisUtterance(fromText.value);
+            utterance.lang = selectTag[0].value;
+          } else {
+            utterance = new SpeechSynthesisUtterance(toText.value);
+            utterance.lang = selectTag[1].value;
+          }
+          speechSynthesis.speak(utterance);
+        }
       });
-    };
-  }, [fromLang, toLang]);
-
-  const handleExchange = () => {
-    setFromText((prevFromText) => {
-      setToText(prevFromText);
-      return toText;
     });
-
-    setFromLang((prevFromLang) => {
-      setToLang(prevFromLang);
-      return toLang;
-    });
-  };
-
-  const handleKeyUp = () => {
-    if (!fromText) {
-      setToText("");
-    }
-  };
-
-  const handleTranslate = async () => {
-    if (!fromText) return;
-
-    setToText("Translating...");
-
-    try {
-      const apiUrl = `https://api.mymemory.translated.net/get?q=${fromText}&langpair=${fromLang}|${toLang}`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-
-      const translation = data.matches.length > 0 ? data.matches[0].translation : "";
-      setToText(translation);
-    } catch (error) {
-      console.error("Translation failed:", error);
-    }
-  };
-
-  const handleIconClick = ({ target }) => {
-    if (!fromText || !toText) return;
-
-    if (target.classList.contains("fa-copy")) {
-      const copyText = target.id === "from" ? fromText : toText;
-      navigator.clipboard.writeText(copyText);
-    } else {
-      const utterance = new SpeechSynthesisUtterance(target.id === "from" ? fromText : toText);
-      utterance.lang = target.id === "from" ? fromLang : toLang;
-      speechSynthesis.speak(utterance);
-    }
-  };
-
+  }, []);
   return (
-    <div className="container">
-      <div className="wrapper">
-        <div className="text-input">
-          <textarea
-            spellCheck="false"
-            className="from-text"
-            placeholder="Enter text"
-            value={fromText}
-            onChange={(e) => setFromText(e.target.value)}
-          ></textarea>
-          <textarea
-            spellCheck="false"
-            readOnly
-            disabled
-            className="to-text"
-            placeholder="Translation"
-            value={toText}
-          ></textarea>
+    <>
+      <div className="container">
+        <div className="wrapper">
+          <div className="text-input">
+            <textarea
+              spellcheck="false"
+              className="from-text"
+              placeholder="Enter text"
+            ></textarea>
+            <textarea
+              spellcheck="false"
+              readonly
+              disabled
+              className="to-text"
+              placeholder="Translation"
+            ></textarea>
+          </div>
+          <ul className="controls">
+            <li className="row from">
+              <div className="icons">
+                <i id="from" className="fas fa-volume-up"></i>
+                <i id="from" className="fas fa-copy"></i>
+              </div>
+              <select></select>
+            </li>
+            <li className="exchange">
+              <i className="fas fa-exchange-alt"></i>
+            </li>
+            <li className="row to">
+              <select></select>
+              <div className="icons">
+                <i id="to" className="fas fa-volume-up"></i>
+                <i id="to" className="fas fa-copy"></i>
+              </div>
+            </li>
+          </ul>
         </div>
-        <ul className="controls">
-          <li className="row from">
-            <div className="icons">
-              <i id="from" className="fas fa-volume-up" onClick={handleIconClick}></i>
-              <i id="from" className="fas fa-copy" onClick={handleIconClick}></i>
-            </div>
-            <select value={fromLang} onChange={(e) => setFromLang(e.target.value)}></select>
-          </li>
-          <li className="exchange" onClick={handleExchange}>
-            <i className="fas fa-exchange-alt"></i>
-          </li>
-          <li className="row to">
-            <select value={toLang} onChange={(e) => setToLang(e.target.value)}></select>
-            <div className="icons">
-              <i id="to" className="fas fa-volume-up" onClick={handleIconClick}></i>
-              <i id="to" className="fas fa-copy" onClick={handleIconClick}></i>
-            </div>
-          </li>
-        </ul>
+        <button>Translate Text</button>
       </div>
-      <button onClick={handleTranslate}>Translate Text</button>
-    </div>
+    </>
   );
 };
 
 export default Translate;
+
+
+
+
